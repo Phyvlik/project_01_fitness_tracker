@@ -464,18 +464,26 @@ class _ExercisePickerSheet extends StatefulWidget {
 class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   String _search = '';
   String _filterCategory = '';
+  String _filterDifficulty = '';
+  String _filterEquipment = '';
 
   List<Exercise> get _filtered => widget.exercises.where((e) {
     final matchSearch =
         _search.isEmpty || e.name.toLowerCase().contains(_search.toLowerCase());
     final matchCat = _filterCategory.isEmpty || e.category == _filterCategory;
-    return matchSearch && matchCat;
+    final matchDifficulty =
+        _filterDifficulty.isEmpty || e.difficulty == _filterDifficulty;
+    final matchEquipment =
+        _filterEquipment.isEmpty || e.equipment == _filterEquipment;
+    return matchSearch && matchCat && matchDifficulty && matchEquipment;
   }).toList();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final categories = ['', ...Exercise.categories];
+    final difficulties = ['', ...Exercise.difficulties];
+    final equipment = ['', ...Exercise.equipmentOptions];
 
     return DraggableScrollableSheet(
       expand: false,
@@ -532,6 +540,52 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                   );
                 },
               ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _filterDifficulty,
+                    decoration: const InputDecoration(
+                      labelText: 'Difficulty',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: difficulties
+                        .map(
+                          (d) => DropdownMenuItem<String>(
+                            value: d,
+                            child: Text(d.isEmpty ? 'All' : d),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) =>
+                        setState(() => _filterDifficulty = v ?? ''),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _filterEquipment,
+                    decoration: const InputDecoration(
+                      labelText: 'Equipment',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: equipment
+                        .map(
+                          (e) => DropdownMenuItem<String>(
+                            value: e,
+                            child: Text(e.isEmpty ? 'All' : e),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) =>
+                        setState(() => _filterEquipment = v ?? ''),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             // Exercise list
