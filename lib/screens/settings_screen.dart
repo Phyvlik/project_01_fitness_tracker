@@ -9,14 +9,14 @@ class SettingsScreen extends StatelessWidget {
     try {
       final path = await provider.exportDataToJson();
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Data exported to: $path')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Data exported to: $path')));
     } catch (_) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to export data.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to export data.')));
     }
   }
 
@@ -83,7 +83,9 @@ class SettingsScreen extends StatelessWidget {
               const Divider(),
               ListTile(
                 title: const Text('Export Data (JSON)'),
-                subtitle: const Text('Save workouts and quests to local storage'),
+                subtitle: const Text(
+                  'Save workouts and quests to local storage',
+                ),
                 trailing: const Icon(Icons.download),
                 onTap: () => _exportData(context, provider),
               ),
