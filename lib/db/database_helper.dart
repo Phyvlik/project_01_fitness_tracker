@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/exercise.dart';
@@ -25,8 +27,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -87,11 +90,35 @@ class DatabaseHelper {
       )
     ''');
 
+    await _createSyncQueueTable(db);
+
     // Seed predefined exercises
     await _seedExercises(db);
 
     // Seed starter quests
     await _seedQuests(db);
+  }
+
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createSyncQueueTable(db);
+    }
+  }
+
+  Future<void> _createSyncQueueTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity TEXT NOT NULL,
+        action TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL,
+        synced_at TEXT,
+        last_error TEXT,
+        retry_count INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
   }
 
   // ---------------------------------------------------------------------------
@@ -101,8 +128,11 @@ class DatabaseHelper {
   /// Insert a new exercise and return its new id
   Future<int> insertExercise(Exercise exercise) async {
     final db = await database;
-    return await db.insert('exercises', exercise.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    return await db.insert(
+      'exercises',
+      exercise.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Fetch all exercises, optionally filtered by category or difficulty
@@ -160,13 +190,15 @@ class DatabaseHelper {
   /// Insert a new workout session (returns the new id)
   Future<int> insertWorkout(Workout workout) async {
     final db = await database;
-    return await db.insert('workouts', workout.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    return await db.insert(
+      'workouts',
+      workout.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Insert a list of WorkoutExercise entries for a given workout
-  Future<void> insertWorkoutExercises(
-      List<WorkoutExercise> exercises) async {
+  Future<void> insertWorkoutExercises(List<WorkoutExercise> exercises) async {
     final db = await database;
     final batch = db.batch();
     for (final e in exercises) {
@@ -178,8 +210,7 @@ class DatabaseHelper {
   /// Fetch all workouts ordered by most recent first
   Future<List<Workout>> getWorkouts() async {
     final db = await database;
-    final maps =
-        await db.query('workouts', orderBy: 'date DESC');
+    final maps = await db.query('workouts', orderBy: 'date DESC');
     return maps.map((m) => Workout.fromMap(m)).toList();
   }
 
@@ -187,8 +218,11 @@ class DatabaseHelper {
   Future<Workout?> getWorkoutWithExercises(int id) async {
     final db = await database;
 
-    final workoutMaps =
-        await db.query('workouts', where: 'id = ?', whereArgs: [id]);
+    final workoutMaps = await db.query(
+      'workouts',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
     if (workoutMaps.isEmpty) return null;
 
     final workout = Workout.fromMap(workoutMaps.first);
@@ -199,8 +233,9 @@ class DatabaseHelper {
       whereArgs: [id],
     );
 
-    final exercises =
-        exerciseMaps.map((m) => WorkoutExercise.fromMap(m)).toList();
+    final exercises = exerciseMaps
+        .map((m) => WorkoutExercise.fromMap(m))
+        .toList();
 
     return workout.copyWith(exercises: exercises);
   }
@@ -208,28 +243,37 @@ class DatabaseHelper {
   /// Update an existing workout record
   Future<void> updateWorkout(Workout workout) async {
     final db = await database;
-    await db.update('workouts', workout.toMap(),
-        where: 'id = ?', whereArgs: [workout.id]);
+    await db.update(
+      'workouts',
+      workout.toMap(),
+      where: 'id = ?',
+      whereArgs: [workout.id],
+    );
   }
 
   /// Delete a workout and its associated exercises (cascade)
   Future<void> deleteWorkout(int id) async {
     final db = await database;
-    await db.delete('workout_exercises', where: 'workout_id = ?', whereArgs: [id]);
+    await db.delete(
+      'workout_exercises',
+      where: 'workout_id = ?',
+      whereArgs: [id],
+    );
     await db.delete('workouts', where: 'id = ?', whereArgs: [id]);
   }
 
   /// Get total workouts logged (used for streak/stats)
   Future<int> getTotalWorkouts() async {
     final db = await database;
-    final result =
-        await db.rawQuery('SELECT COUNT(*) as count FROM workouts');
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM workouts');
     return result.first['count'] as int;
   }
 
   /// Get workouts within a date range (yyyy-MM-dd strings)
   Future<List<Workout>> getWorkoutsBetween(
-      String startDate, String endDate) async {
+    String startDate,
+    String endDate,
+  ) async {
     final db = await database;
     final maps = await db.query(
       'workouts',
@@ -243,11 +287,7 @@ class DatabaseHelper {
   /// Get last N workouts (used for AI suggestion)
   Future<List<Workout>> getRecentWorkouts(int limit) async {
     final db = await database;
-    final maps = await db.query(
-      'workouts',
-      orderBy: 'date DESC',
-      limit: limit,
-    );
+    final maps = await db.query('workouts', orderBy: 'date DESC', limit: limit);
     return maps.map((m) => Workout.fromMap(m)).toList();
   }
 
@@ -258,13 +298,16 @@ class DatabaseHelper {
     final cutoffStr =
         '${cutoff.year}-${cutoff.month.toString().padLeft(2, '0')}-${cutoff.day.toString().padLeft(2, '0')}';
 
-    final maps = await db.rawQuery('''
+    final maps = await db.rawQuery(
+      '''
       SELECT date, COUNT(*) as count
       FROM workouts
       WHERE date >= ?
       GROUP BY date
       ORDER BY date ASC
-    ''', [cutoffStr]);
+    ''',
+      [cutoffStr],
+    );
 
     final result = <String, int>{};
     for (final row in maps) {
@@ -280,23 +323,29 @@ class DatabaseHelper {
   /// Insert a new quest
   Future<int> insertQuest(Quest quest) async {
     final db = await database;
-    return await db.insert('quests', quest.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    return await db.insert(
+      'quests',
+      quest.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Fetch all quests
   Future<List<Quest>> getQuests() async {
     final db = await database;
-    final maps =
-        await db.query('quests', orderBy: 'is_completed ASC, id DESC');
+    final maps = await db.query('quests', orderBy: 'is_completed ASC, id DESC');
     return maps.map((m) => Quest.fromMap(m)).toList();
   }
 
   /// Update quest progress and completion status
   Future<void> updateQuest(Quest quest) async {
     final db = await database;
-    await db.update('quests', quest.toMap(),
-        where: 'id = ?', whereArgs: [quest.id]);
+    await db.update(
+      'quests',
+      quest.toMap(),
+      where: 'id = ?',
+      whereArgs: [quest.id],
+    );
   }
 
   /// Delete a quest by id
@@ -310,8 +359,7 @@ class DatabaseHelper {
     final db = await database;
 
     // Get all non-completed quests
-    final maps = await db.query('quests',
-        where: 'is_completed = 0');
+    final maps = await db.query('quests', where: 'is_completed = 0');
     final quests = maps.map((m) => Quest.fromMap(m)).toList();
 
     final batch = db.batch();
@@ -336,7 +384,8 @@ class DatabaseHelper {
   Future<int> getCurrentStreak() async {
     final db = await database;
     final maps = await db.rawQuery(
-        'SELECT DISTINCT date FROM workouts ORDER BY date DESC');
+      'SELECT DISTINCT date FROM workouts ORDER BY date DESC',
+    );
 
     if (maps.isEmpty) return 0;
 
@@ -347,11 +396,12 @@ class DatabaseHelper {
       final dateStr = row['date'] as String;
       final parts = dateStr.split('-');
       final date = DateTime(
-          int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
 
-      final diff = current
-          .difference(date)
-          .inDays;
+      final diff = current.difference(date).inDays;
 
       if (diff == 0 || diff == 1) {
         streak++;
@@ -375,51 +425,373 @@ class DatabaseHelper {
   }
 
   // ---------------------------------------------------------------------------
+  // OFFLINE SYNC QUEUE
+  // ---------------------------------------------------------------------------
+
+  /// Stores local operations so they can be synced later when needed.
+  Future<int> enqueueSyncOperation({
+    required String entity,
+    required String action,
+    Map<String, dynamic>? payload,
+  }) async {
+    final db = await database;
+    return db.insert('sync_queue', {
+      'entity': entity,
+      'action': action,
+      'payload': jsonEncode(payload ?? <String, dynamic>{}),
+      'status': 'pending',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingSyncOperations() async {
+    final db = await database;
+    return db.query(
+      'sync_queue',
+      where: 'status = ?',
+      whereArgs: ['pending'],
+      orderBy: 'id ASC',
+    );
+  }
+
+  Future<int> getPendingSyncOperationCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      "SELECT COUNT(*) as count FROM sync_queue WHERE status = 'pending'",
+    );
+    return result.first['count'] as int;
+  }
+
+  Future<void> markSyncOperationSynced(int id) async {
+    final db = await database;
+    await db.update(
+      'sync_queue',
+      {
+        'status': 'synced',
+        'synced_at': DateTime.now().toIso8601String(),
+        'last_error': null,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> markSyncOperationFailed(int id, String error) async {
+    final db = await database;
+    await db.rawUpdate(
+      '''
+      UPDATE sync_queue
+      SET status = 'pending',
+          last_error = ?,
+          retry_count = retry_count + 1
+      WHERE id = ?
+      ''',
+      [error, id],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // SEED DATA
   // ---------------------------------------------------------------------------
 
   Future<void> _seedExercises(Database db) async {
     final exercises = [
       // Chest
-      {'name': 'Bench Press', 'category': 'Chest', 'difficulty': 'Intermediate', 'equipment': 'Barbell', 'description': 'Lie on a bench and press a barbell upward from chest level. Classic compound push movement.', 'is_custom': 0},
-      {'name': 'Push-Up', 'category': 'Chest', 'difficulty': 'Beginner', 'equipment': 'Bodyweight', 'description': 'Start in plank position, lower your chest to the floor, then push back up. Great for building chest and tricep strength.', 'is_custom': 0},
-      {'name': 'Dumbbell Flyes', 'category': 'Chest', 'difficulty': 'Intermediate', 'equipment': 'Dumbbells', 'description': 'Lie on a bench with dumbbells, open arms wide then bring them together in an arc over your chest.', 'is_custom': 0},
-      {'name': 'Incline Bench Press', 'category': 'Chest', 'difficulty': 'Intermediate', 'equipment': 'Barbell', 'description': 'Same as bench press but on an inclined bench to target upper chest.', 'is_custom': 0},
-      {'name': 'Cable Crossover', 'category': 'Chest', 'difficulty': 'Intermediate', 'equipment': 'Cable', 'description': 'Pull cable handles from high to low in a crossing motion to isolate the chest.', 'is_custom': 0},
+      {
+        'name': 'Bench Press',
+        'category': 'Chest',
+        'difficulty': 'Intermediate',
+        'equipment': 'Barbell',
+        'description':
+            'Lie on a bench and press a barbell upward from chest level. Classic compound push movement.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Push-Up',
+        'category': 'Chest',
+        'difficulty': 'Beginner',
+        'equipment': 'Bodyweight',
+        'description':
+            'Start in plank position, lower your chest to the floor, then push back up. Great for building chest and tricep strength.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Dumbbell Flyes',
+        'category': 'Chest',
+        'difficulty': 'Intermediate',
+        'equipment': 'Dumbbells',
+        'description':
+            'Lie on a bench with dumbbells, open arms wide then bring them together in an arc over your chest.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Incline Bench Press',
+        'category': 'Chest',
+        'difficulty': 'Intermediate',
+        'equipment': 'Barbell',
+        'description':
+            'Same as bench press but on an inclined bench to target upper chest.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Cable Crossover',
+        'category': 'Chest',
+        'difficulty': 'Intermediate',
+        'equipment': 'Cable',
+        'description':
+            'Pull cable handles from high to low in a crossing motion to isolate the chest.',
+        'is_custom': 0,
+      },
       // Back
-      {'name': 'Pull-Up', 'category': 'Back', 'difficulty': 'Intermediate', 'equipment': 'Bodyweight', 'description': 'Hang from a bar and pull your body up until your chin clears the bar. Excellent for lats and upper back.', 'is_custom': 0},
-      {'name': 'Barbell Row', 'category': 'Back', 'difficulty': 'Intermediate', 'equipment': 'Barbell', 'description': 'Bend at the hips and row a barbell up to your lower chest. Builds thickness in the upper back.', 'is_custom': 0},
-      {'name': 'Lat Pulldown', 'category': 'Back', 'difficulty': 'Beginner', 'equipment': 'Machine', 'description': 'Pull a bar down to your upper chest while seated. Good lat isolation exercise.', 'is_custom': 0},
-      {'name': 'Seated Cable Row', 'category': 'Back', 'difficulty': 'Beginner', 'equipment': 'Cable', 'description': 'Sit at a cable row station and pull the handle to your midsection while keeping your back straight.', 'is_custom': 0},
-      {'name': 'Deadlift', 'category': 'Back', 'difficulty': 'Advanced', 'equipment': 'Barbell', 'description': 'Lift a loaded barbell from the floor to hip level. The king of posterior chain exercises.', 'is_custom': 0},
+      {
+        'name': 'Pull-Up',
+        'category': 'Back',
+        'difficulty': 'Intermediate',
+        'equipment': 'Bodyweight',
+        'description':
+            'Hang from a bar and pull your body up until your chin clears the bar. Excellent for lats and upper back.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Barbell Row',
+        'category': 'Back',
+        'difficulty': 'Intermediate',
+        'equipment': 'Barbell',
+        'description':
+            'Bend at the hips and row a barbell up to your lower chest. Builds thickness in the upper back.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Lat Pulldown',
+        'category': 'Back',
+        'difficulty': 'Beginner',
+        'equipment': 'Machine',
+        'description':
+            'Pull a bar down to your upper chest while seated. Good lat isolation exercise.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Seated Cable Row',
+        'category': 'Back',
+        'difficulty': 'Beginner',
+        'equipment': 'Cable',
+        'description':
+            'Sit at a cable row station and pull the handle to your midsection while keeping your back straight.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Deadlift',
+        'category': 'Back',
+        'difficulty': 'Advanced',
+        'equipment': 'Barbell',
+        'description':
+            'Lift a loaded barbell from the floor to hip level. The king of posterior chain exercises.',
+        'is_custom': 0,
+      },
       // Legs
-      {'name': 'Squat', 'category': 'Legs', 'difficulty': 'Intermediate', 'equipment': 'Barbell', 'description': 'Place a barbell on your upper back and squat down until thighs are parallel to the floor. Fundamental lower-body movement.', 'is_custom': 0},
-      {'name': 'Leg Press', 'category': 'Legs', 'difficulty': 'Beginner', 'equipment': 'Machine', 'description': 'Push a weighted platform away with your feet on a leg press machine. Targets quads, hamstrings, and glutes.', 'is_custom': 0},
-      {'name': 'Lunges', 'category': 'Legs', 'difficulty': 'Beginner', 'equipment': 'Bodyweight', 'description': 'Step forward and lower your rear knee toward the floor, then return to standing. Great unilateral leg exercise.', 'is_custom': 0},
-      {'name': 'Romanian Deadlift', 'category': 'Legs', 'difficulty': 'Intermediate', 'equipment': 'Barbell', 'description': 'Hinge at the hips with a slight knee bend, lowering the bar along your legs. Targets hamstrings and glutes.', 'is_custom': 0},
-      {'name': 'Calf Raise', 'category': 'Legs', 'difficulty': 'Beginner', 'equipment': 'Machine', 'description': 'Rise up on your toes against resistance to target the calf muscles.', 'is_custom': 0},
+      {
+        'name': 'Squat',
+        'category': 'Legs',
+        'difficulty': 'Intermediate',
+        'equipment': 'Barbell',
+        'description':
+            'Place a barbell on your upper back and squat down until thighs are parallel to the floor. Fundamental lower-body movement.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Leg Press',
+        'category': 'Legs',
+        'difficulty': 'Beginner',
+        'equipment': 'Machine',
+        'description':
+            'Push a weighted platform away with your feet on a leg press machine. Targets quads, hamstrings, and glutes.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Lunges',
+        'category': 'Legs',
+        'difficulty': 'Beginner',
+        'equipment': 'Bodyweight',
+        'description':
+            'Step forward and lower your rear knee toward the floor, then return to standing. Great unilateral leg exercise.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Romanian Deadlift',
+        'category': 'Legs',
+        'difficulty': 'Intermediate',
+        'equipment': 'Barbell',
+        'description':
+            'Hinge at the hips with a slight knee bend, lowering the bar along your legs. Targets hamstrings and glutes.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Calf Raise',
+        'category': 'Legs',
+        'difficulty': 'Beginner',
+        'equipment': 'Machine',
+        'description':
+            'Rise up on your toes against resistance to target the calf muscles.',
+        'is_custom': 0,
+      },
       // Shoulders
-      {'name': 'Overhead Press', 'category': 'Shoulders', 'difficulty': 'Intermediate', 'equipment': 'Barbell', 'description': 'Press a barbell overhead from shoulder height. The primary shoulder builder.', 'is_custom': 0},
-      {'name': 'Lateral Raise', 'category': 'Shoulders', 'difficulty': 'Beginner', 'equipment': 'Dumbbells', 'description': 'Raise dumbbells out to the sides to shoulder height. Targets the medial deltoid.', 'is_custom': 0},
-      {'name': 'Front Raise', 'category': 'Shoulders', 'difficulty': 'Beginner', 'equipment': 'Dumbbells', 'description': 'Raise dumbbells in front of you to shoulder height to target the anterior deltoid.', 'is_custom': 0},
+      {
+        'name': 'Overhead Press',
+        'category': 'Shoulders',
+        'difficulty': 'Intermediate',
+        'equipment': 'Barbell',
+        'description':
+            'Press a barbell overhead from shoulder height. The primary shoulder builder.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Lateral Raise',
+        'category': 'Shoulders',
+        'difficulty': 'Beginner',
+        'equipment': 'Dumbbells',
+        'description':
+            'Raise dumbbells out to the sides to shoulder height. Targets the medial deltoid.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Front Raise',
+        'category': 'Shoulders',
+        'difficulty': 'Beginner',
+        'equipment': 'Dumbbells',
+        'description':
+            'Raise dumbbells in front of you to shoulder height to target the anterior deltoid.',
+        'is_custom': 0,
+      },
       // Arms
-      {'name': 'Barbell Curl', 'category': 'Arms', 'difficulty': 'Beginner', 'equipment': 'Barbell', 'description': 'Curl a barbell from hip level to shoulder height. Classic bicep builder.', 'is_custom': 0},
-      {'name': 'Tricep Dip', 'category': 'Arms', 'difficulty': 'Intermediate', 'equipment': 'Bodyweight', 'description': 'Support yourself on parallel bars and lower/raise your body by bending the elbows. Great tricep compound movement.', 'is_custom': 0},
-      {'name': 'Hammer Curl', 'category': 'Arms', 'difficulty': 'Beginner', 'equipment': 'Dumbbells', 'description': 'Curl dumbbells with a neutral (hammer) grip. Targets brachialis and brachioradialis.', 'is_custom': 0},
-      {'name': 'Skull Crusher', 'category': 'Arms', 'difficulty': 'Intermediate', 'equipment': 'Barbell', 'description': 'Lower a barbell toward your forehead while lying on a bench. Excellent tricep isolation.', 'is_custom': 0},
+      {
+        'name': 'Barbell Curl',
+        'category': 'Arms',
+        'difficulty': 'Beginner',
+        'equipment': 'Barbell',
+        'description':
+            'Curl a barbell from hip level to shoulder height. Classic bicep builder.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Tricep Dip',
+        'category': 'Arms',
+        'difficulty': 'Intermediate',
+        'equipment': 'Bodyweight',
+        'description':
+            'Support yourself on parallel bars and lower/raise your body by bending the elbows. Great tricep compound movement.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Hammer Curl',
+        'category': 'Arms',
+        'difficulty': 'Beginner',
+        'equipment': 'Dumbbells',
+        'description':
+            'Curl dumbbells with a neutral (hammer) grip. Targets brachialis and brachioradialis.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Skull Crusher',
+        'category': 'Arms',
+        'difficulty': 'Intermediate',
+        'equipment': 'Barbell',
+        'description':
+            'Lower a barbell toward your forehead while lying on a bench. Excellent tricep isolation.',
+        'is_custom': 0,
+      },
       // Core
-      {'name': 'Plank', 'category': 'Core', 'difficulty': 'Beginner', 'equipment': 'Bodyweight', 'description': 'Hold a push-up position on your forearms for time. Builds core stability and endurance.', 'is_custom': 0},
-      {'name': 'Crunches', 'category': 'Core', 'difficulty': 'Beginner', 'equipment': 'Bodyweight', 'description': 'Lie on your back and curl your shoulders toward your knees. Targets the rectus abdominis.', 'is_custom': 0},
-      {'name': 'Leg Raise', 'category': 'Core', 'difficulty': 'Intermediate', 'equipment': 'Bodyweight', 'description': 'Lie flat and raise straight legs to 90 degrees. Targets lower abs and hip flexors.', 'is_custom': 0},
-      {'name': 'Russian Twist', 'category': 'Core', 'difficulty': 'Beginner', 'equipment': 'Bodyweight', 'description': 'Sit on the floor and rotate your torso side to side. Builds rotational core strength.', 'is_custom': 0},
+      {
+        'name': 'Plank',
+        'category': 'Core',
+        'difficulty': 'Beginner',
+        'equipment': 'Bodyweight',
+        'description':
+            'Hold a push-up position on your forearms for time. Builds core stability and endurance.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Crunches',
+        'category': 'Core',
+        'difficulty': 'Beginner',
+        'equipment': 'Bodyweight',
+        'description':
+            'Lie on your back and curl your shoulders toward your knees. Targets the rectus abdominis.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Leg Raise',
+        'category': 'Core',
+        'difficulty': 'Intermediate',
+        'equipment': 'Bodyweight',
+        'description':
+            'Lie flat and raise straight legs to 90 degrees. Targets lower abs and hip flexors.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Russian Twist',
+        'category': 'Core',
+        'difficulty': 'Beginner',
+        'equipment': 'Bodyweight',
+        'description':
+            'Sit on the floor and rotate your torso side to side. Builds rotational core strength.',
+        'is_custom': 0,
+      },
       // Cardio
-      {'name': 'Running', 'category': 'Cardio', 'difficulty': 'Beginner', 'equipment': 'None', 'description': 'Sustained aerobic running. Track distance and duration to monitor cardiovascular improvement.', 'is_custom': 0},
-      {'name': 'Jump Rope', 'category': 'Cardio', 'difficulty': 'Beginner', 'equipment': 'None', 'description': 'Skip rope for timed intervals. Excellent for cardio, coordination, and calorie burn.', 'is_custom': 0},
-      {'name': 'Burpee', 'category': 'Cardio', 'difficulty': 'Intermediate', 'equipment': 'Bodyweight', 'description': 'A full-body movement combining a squat, plank, push-up, and jump. High intensity.', 'is_custom': 0},
-      {'name': 'Cycling', 'category': 'Cardio', 'difficulty': 'Beginner', 'equipment': 'Machine', 'description': 'Ride a stationary or outdoor bike. Great low-impact cardio option.', 'is_custom': 0},
+      {
+        'name': 'Running',
+        'category': 'Cardio',
+        'difficulty': 'Beginner',
+        'equipment': 'None',
+        'description':
+            'Sustained aerobic running. Track distance and duration to monitor cardiovascular improvement.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Jump Rope',
+        'category': 'Cardio',
+        'difficulty': 'Beginner',
+        'equipment': 'None',
+        'description':
+            'Skip rope for timed intervals. Excellent for cardio, coordination, and calorie burn.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Burpee',
+        'category': 'Cardio',
+        'difficulty': 'Intermediate',
+        'equipment': 'Bodyweight',
+        'description':
+            'A full-body movement combining a squat, plank, push-up, and jump. High intensity.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Cycling',
+        'category': 'Cardio',
+        'difficulty': 'Beginner',
+        'equipment': 'Machine',
+        'description':
+            'Ride a stationary or outdoor bike. Great low-impact cardio option.',
+        'is_custom': 0,
+      },
       // Full Body
-      {'name': 'Kettlebell Swing', 'category': 'Full Body', 'difficulty': 'Intermediate', 'equipment': 'Kettlebell', 'description': 'Hinge at the hips and swing a kettlebell from between your legs to shoulder height. Explosive full-body power movement.', 'is_custom': 0},
-      {'name': 'Clean and Press', 'category': 'Full Body', 'difficulty': 'Advanced', 'equipment': 'Barbell', 'description': 'Pull a barbell from the floor to shoulders then press overhead. Total-body compound lift.', 'is_custom': 0},
+      {
+        'name': 'Kettlebell Swing',
+        'category': 'Full Body',
+        'difficulty': 'Intermediate',
+        'equipment': 'Kettlebell',
+        'description':
+            'Hinge at the hips and swing a kettlebell from between your legs to shoulder height. Explosive full-body power movement.',
+        'is_custom': 0,
+      },
+      {
+        'name': 'Clean and Press',
+        'category': 'Full Body',
+        'difficulty': 'Advanced',
+        'equipment': 'Barbell',
+        'description':
+            'Pull a barbell from the floor to shoulders then press overhead. Total-body compound lift.',
+        'is_custom': 0,
+      },
     ];
 
     final batch = db.batch();
@@ -437,7 +809,8 @@ class DatabaseHelper {
     final quests = [
       {
         'name': 'First Step',
-        'description': 'Log your very first workout to get started on your fitness journey.',
+        'description':
+            'Log your very first workout to get started on your fitness journey.',
         'target_workouts': 1,
         'completed_workouts': 0,
         'reward': 'Badge: Beginner Athlete',
@@ -446,7 +819,8 @@ class DatabaseHelper {
       },
       {
         'name': 'Week Warrior',
-        'description': 'Log 5 workouts to prove you can stay consistent for a week.',
+        'description':
+            'Log 5 workouts to prove you can stay consistent for a week.',
         'target_workouts': 5,
         'completed_workouts': 0,
         'reward': 'Badge: Week Warrior',
@@ -455,7 +829,8 @@ class DatabaseHelper {
       },
       {
         'name': 'Iron Will',
-        'description': 'Complete 10 workouts and show your dedication to the grind.',
+        'description':
+            'Complete 10 workouts and show your dedication to the grind.',
         'target_workouts': 10,
         'completed_workouts': 0,
         'reward': 'Badge: Iron Will',
@@ -464,7 +839,8 @@ class DatabaseHelper {
       },
       {
         'name': 'Strength Builder',
-        'description': 'Log 3 high-intensity strength workouts to build serious muscle.',
+        'description':
+            'Log 3 high-intensity strength workouts to build serious muscle.',
         'target_workouts': 3,
         'completed_workouts': 0,
         'reward': 'Badge: Power Lifter',

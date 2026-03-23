@@ -57,6 +57,20 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _runOfflineSync(
+    BuildContext context,
+    AppProvider provider,
+  ) async {
+    final synced = await provider.syncPendingOperations();
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Offline sync complete. Processed $synced operations.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -134,6 +148,25 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 trailing: const Icon(Icons.upload_file),
                 onTap: () => _importData(context, provider),
+              ),
+              const Divider(),
+              ListTile(
+                title: const Text('Offline Sync Queue'),
+                subtitle: Text(
+                  provider.pendingSyncCount == 0
+                      ? 'No pending operations'
+                      : '${provider.pendingSyncCount} pending operations',
+                ),
+                trailing: provider.isSyncing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync),
+                onTap: provider.isSyncing
+                    ? null
+                    : () => _runOfflineSync(context, provider),
               ),
               const Divider(),
               const SizedBox(height: 32),

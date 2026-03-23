@@ -74,6 +74,15 @@ class AppProvider extends ChangeNotifier {
   int get aiNotHelpfulCount => _aiNotHelpfulCount;
 
   // ---------------------------------------------------------------------------
+  // Offline sync queue state
+  // ---------------------------------------------------------------------------
+  int _pendingSyncCount = 0;
+  int get pendingSyncCount => _pendingSyncCount;
+
+  bool _isSyncing = false;
+  bool get isSyncing => _isSyncing;
+
+  // ---------------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------------
 
@@ -83,6 +92,7 @@ class AppProvider extends ChangeNotifier {
     await loadWorkouts();
     await loadQuests();
     await _refreshStreak();
+    await refreshPendingSyncCount();
     _generateAiSuggestion();
   }
 
@@ -186,18 +196,38 @@ class AppProvider extends ChangeNotifier {
     // Advance all active quests
     await DatabaseHelper.instance.progressActiveQuests();
 
+    await DatabaseHelper.instance.enqueueSyncOperation(
+      entity: 'workout',
+      action: 'create',
+      payload: {
+        'id': id,
+        'name': workout.name,
+        'date': workout.date,
+        'duration': workout.duration,
+        'intensity': workout.intensity,
+        'exercise_count': workout.exercises.length,
+      },
+    );
+
     // Refresh state
     await loadWorkouts();
     await loadQuests();
     await _refreshStreak();
+    await refreshPendingSyncCount();
     _generateAiSuggestion();
   }
 
   /// Delete a workout by id, then refresh state.
   Future<void> deleteWorkout(int id) async {
     await DatabaseHelper.instance.deleteWorkout(id);
+    await DatabaseHelper.instance.enqueueSyncOperation(
+      entity: 'workout',
+      action: 'delete',
+      payload: {'id': id},
+    );
     await loadWorkouts();
     await _refreshStreak();
+    await refreshPendingSyncCount();
     _generateAiSuggestion();
   }
 
@@ -211,13 +241,67 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addQuest(Quest quest) async {
-    await DatabaseHelper.instance.insertQuest(quest);
+    final id = await DatabaseHelper.instance.insertQuest(quest);
+    await DatabaseHelper.instance.enqueueSyncOperation(
+      entity: 'quest',
+      action: 'create',
+      payload: {
+        'id': id,
+        'name': quest.name,
+        'target_workouts': quest.targetWorkouts,
+      },
+    );
     await loadQuests();
+    await refreshPendingSyncCount();
   }
 
   Future<void> deleteQuest(int id) async {
     await DatabaseHelper.instance.deleteQuest(id);
+    await DatabaseHelper.instance.enqueueSyncOperation(
+      entity: 'quest',
+      action: 'delete',
+      payload: {'id': id},
+    );
     await loadQuests();
+    await refreshPendingSyncCount();
+  }
+
+  /// Reads and exposes count of pending sync operations for UI.
+  Future<void> refreshPendingSyncCount() async {
+    _pendingSyncCount = await DatabaseHelper.instance
+        .getPendingSyncOperationCount();
+    notifyListeners();
+  }
+
+  /// Simulates an offline-first sync pass by marking pending operations as synced.
+  /// Returns how many queued operations were processed.
+  Future<int> syncPendingOperations() async {
+    if (_isSyncing) return 0;
+
+    _isSyncing = true;
+    notifyListeners();
+
+    int synced = 0;
+    try {
+      final pending = await DatabaseHelper.instance.getPendingSyncOperations();
+      for (final item in pending) {
+        final id = item['id'] as int?;
+        if (id == null) continue;
+
+        // Local simulation of sync completion while preserving queue history.
+        await DatabaseHelper.instance.markSyncOperationSynced(id);
+        synced++;
+      }
+
+      await refreshPendingSyncCount();
+      return synced;
+    } catch (e) {
+      // Keep queue pending on error so nothing is lost.
+      return synced;
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -410,6 +494,15 @@ class AppProvider extends ChangeNotifier {
     await loadWorkouts();
     await loadQuests();
     await _refreshStreak();
+    await DatabaseHelper.instance.enqueueSyncOperation(
+      entity: 'bulk_import',
+      action: 'import',
+      payload: {
+        'workouts_imported': workoutsImported,
+        'quests_imported': questsImported,
+      },
+    );
+    await refreshPendingSyncCount();
     _generateAiSuggestion();
 
     return {'workouts': workoutsImported, 'quests': questsImported};

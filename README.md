@@ -305,19 +305,14 @@ exercises (1) ─── (*) workout_exercises
 
 ## ⚠️ Known Issues
 
-1. **Charts Not Implemented**: `fl_chart` package is included but chart visualization features are not yet implemented (future enhancement)
-2. **No Backup/Export**: Data export to JSON/CSV not yet implemented
-3. **Limited AI Features**: AI suggestions use rule-based logic, not machine learning
-4. **No Image Support**: Photo timeline feature mentioned in spec not yet implemented
-5. **Notifications**: Notification preferences toggle in settings, but system notifications not fully implemented
+1. **Limited AI Features**: AI suggestions use rule-based logic, not machine learning
+2. **No Image Support**: Photo timeline feature mentioned in spec not yet implemented
+3. **Notifications**: Notification preferences toggle in settings, but system notifications are not fully implemented
 
 ## 🚀 Future Enhancements
 
 ### High Priority
-- [ ] **Data Export**: Export workouts to CSV/JSON format
 - [ ] **Photo Timeline**: Capture progress photos and create transformation timelines
-- [ ] **Charts & Analytics**: Implement progress charts using `fl_chart`
-- [ ] **Biometric Auth**: Fingerprint or face recognition login
 - [ ] **Local Notifications**: Reminder notifications for scheduled workouts
 
 ### Medium Priority
@@ -329,9 +324,19 @@ exercises (1) ─── (*) workout_exercises
 
 ### Low Priority
 - [ ] **Multiple Users**: Support for multiple accounts per device
-- [ ] **Data Sync**: Sync data across devices (with local option)
 - [ ] **Wearable Integration**: Connect with fitness trackers
 - [ ] **Social Features**: Share achievements with friends
+
+## ⭐ Bonus Features Status
+
+- [x] Data export/import functionality (JSON)
+- [x] Dark mode theme switching
+- [x] Advanced search with filters
+- [x] Data visualization with charts
+- [x] Offline-first architecture with local sync queue capability
+- [ ] Biometric authentication (fingerprint/face)
+- [ ] Custom camera integration for image capture
+- [ ] Complete test suite with >80% coverage (graduate bonus)
 
 ## 👥 Team Members
 
