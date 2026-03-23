@@ -4,6 +4,7 @@ import '../providers/app_provider.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/ai_suggestion_card.dart';
 import '../widgets/workout_card.dart';
+import 'add_workout_screen.dart';
 import 'workout_log_screen.dart';
 
 /// Dashboard screen — the first thing users see.
@@ -19,6 +20,15 @@ class HomeScreen extends StatelessWidget {
         final recentWorkouts = provider.workouts.take(5).toList();
 
         return Scaffold(
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddWorkoutScreen()),
+              );
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Log Workout'),
+          ),
           body: SafeArea(
             child: RefreshIndicator(
               onRefresh: () => provider.loadWorkouts(),
@@ -154,31 +164,34 @@ class HomeScreen extends StatelessWidget {
                       child: Center(child: CircularProgressIndicator()),
                     )
                   else if (recentWorkouts.isEmpty)
-                    SliverFillRemaining(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.fitness_center,
-                              size: 64,
-                              color: theme.colorScheme.outline,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No workouts yet!',
-                              style: theme.textTheme.titleMedium?.copyWith(
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 56, bottom: 120),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.fitness_center,
+                                size: 64,
                                 color: theme.colorScheme.outline,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tap the + button to log your first workout.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.outline,
+                              const SizedBox(height: 16),
+                              Text(
+                                'No workouts yet!',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.outline,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap the + button to log your first workout.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     )
