@@ -229,7 +229,9 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
       exercises: _sessionExercises,
     );
 
-    await context.read<AppProvider>().addWorkout(workout);
+    if (!mounted) return;
+    final provider = context.read<AppProvider>();
+    await provider.addWorkout(workout);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -546,7 +548,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _filterDifficulty,
+                    initialValue: _filterDifficulty,
                     decoration: const InputDecoration(
                       labelText: 'Difficulty',
                       border: OutlineInputBorder(),
@@ -567,7 +569,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _filterEquipment,
+                    initialValue: _filterEquipment,
                     decoration: const InputDecoration(
                       labelText: 'Equipment',
                       border: OutlineInputBorder(),
