@@ -5,11 +5,19 @@ import 'package:flutter/material.dart';
 class AiSuggestionCard extends StatelessWidget {
   final String suggestion;
   final String reason;
+  final VoidCallback? onHelpful;
+  final VoidCallback? onNotHelpful;
+  final int helpfulCount;
+  final int notHelpfulCount;
 
   const AiSuggestionCard({
     super.key,
     required this.suggestion,
     required this.reason,
+    this.onHelpful,
+    this.onNotHelpful,
+    this.helpfulCount = 0,
+    this.notHelpfulCount = 0,
   });
 
   @override
@@ -84,6 +92,35 @@ class AiSuggestionCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(
+                    'Was this helpful?',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer.withValues(
+                        alpha: 0.8,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Helpful',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onHelpful,
+                    icon: const Icon(Icons.thumb_up_alt_outlined, size: 18),
+                  ),
+                  Text('$helpfulCount'),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Not Helpful',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onNotHelpful,
+                    icon: const Icon(Icons.thumb_down_alt_outlined, size: 18),
+                  ),
+                  Text('$notHelpfulCount'),
+                ],
               ),
             ],
           ),

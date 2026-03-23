@@ -67,6 +67,12 @@ class AppProvider extends ChangeNotifier {
   String _aiReason = '';
   String get aiReason => _aiReason;
 
+  int _aiHelpfulCount = 0;
+  int get aiHelpfulCount => _aiHelpfulCount;
+
+  int _aiNotHelpfulCount = 0;
+  int get aiNotHelpfulCount => _aiNotHelpfulCount;
+
   // ---------------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------------
@@ -88,6 +94,8 @@ class AppProvider extends ChangeNotifier {
   static const _keyWeeklyGoal = 'weekly_goal';
   static const _keyWeightUnit = 'weight_unit';
   static const _keyNotifications = 'notifications_enabled';
+  static const _keyAiHelpfulCount = 'ai_helpful_count';
+  static const _keyAiNotHelpfulCount = 'ai_not_helpful_count';
 
   int _weeklyGoal = 4;
   int get weeklyGoal => _weeklyGoal;
@@ -104,6 +112,20 @@ class AppProvider extends ChangeNotifier {
     _weeklyGoal = prefs.getInt(_keyWeeklyGoal) ?? 4;
     _weightUnit = prefs.getString(_keyWeightUnit) ?? 'lbs';
     _notificationsEnabled = prefs.getBool(_keyNotifications) ?? true;
+    _aiHelpfulCount = prefs.getInt(_keyAiHelpfulCount) ?? 0;
+    _aiNotHelpfulCount = prefs.getInt(_keyAiNotHelpfulCount) ?? 0;
+    notifyListeners();
+  }
+
+  Future<void> recordAiFeedback(bool helpful) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (helpful) {
+      _aiHelpfulCount++;
+      await prefs.setInt(_keyAiHelpfulCount, _aiHelpfulCount);
+    } else {
+      _aiNotHelpfulCount++;
+      await prefs.setInt(_keyAiNotHelpfulCount, _aiNotHelpfulCount);
+    }
     notifyListeners();
   }
 
@@ -324,5 +346,72 @@ class AppProvider extends ChangeNotifier {
       const JsonEncoder.withIndent('  ').convert(payload),
     );
     return file.path;
+  }
+
+  /// Imports workouts and quests from JSON content produced by exportDataToJson.
+  /// Returns import counts for UI feedback.
+  Future<Map<String, int>> importDataFromJsonString(String jsonContent) async {
+    final raw = jsonDecode(jsonContent);
+    if (raw is! Map<String, dynamic>) {
+      throw const FormatException('Invalid JSON root format');
+    }
+
+    final workoutsRaw = (raw['workouts'] as List?) ?? const [];
+    final questsRaw = (raw['quests'] as List?) ?? const [];
+
+    int workoutsImported = 0;
+    int questsImported = 0;
+
+    for (final item in workoutsRaw) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+
+      final workout = Workout(
+        name: (map['name'] ?? '').toString().trim(),
+        date: (map['date'] ?? '').toString().trim(),
+        duration: (map['duration'] as num?)?.toInt() ?? 0,
+        notes: (map['notes'] ?? '').toString(),
+        intensity: (map['intensity'] ?? 'Medium').toString(),
+      );
+
+      if (workout.name.isEmpty ||
+          workout.date.isEmpty ||
+          workout.duration <= 0) {
+        continue;
+      }
+
+      await DatabaseHelper.instance.insertWorkout(workout);
+      workoutsImported++;
+    }
+
+    for (final item in questsRaw) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+
+      final quest = Quest(
+        name: (map['name'] ?? '').toString().trim(),
+        description: (map['description'] ?? '').toString().trim(),
+        targetWorkouts: (map['target_workouts'] as num?)?.toInt() ?? 0,
+        completedWorkouts: (map['completed_workouts'] as num?)?.toInt() ?? 0,
+        reward: (map['reward'] ?? '').toString().trim(),
+        isCompleted: map['is_completed'] == true || map['is_completed'] == 1,
+        createdDate: (map['created_date'] ?? DateTime.now().toIso8601String())
+            .toString(),
+      );
+
+      if (quest.name.isEmpty || quest.targetWorkouts <= 0) {
+        continue;
+      }
+
+      await DatabaseHelper.instance.insertQuest(quest);
+      questsImported++;
+    }
+
+    await loadWorkouts();
+    await loadQuests();
+    await _refreshStreak();
+    _generateAiSuggestion();
+
+    return {'workouts': workoutsImported, 'quests': questsImported};
   }
 }

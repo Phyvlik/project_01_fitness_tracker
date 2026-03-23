@@ -116,6 +116,10 @@ class HomeScreen extends StatelessWidget {
                       AiSuggestionCard(
                         suggestion: provider.aiSuggestion,
                         reason: provider.aiReason,
+                        helpfulCount: provider.aiHelpfulCount,
+                        notHelpfulCount: provider.aiNotHelpfulCount,
+                        onHelpful: () => provider.recordAiFeedback(true),
+                        onNotHelpful: () => provider.recordAiFeedback(false),
                       ),
 
                       const SizedBox(height: 20),

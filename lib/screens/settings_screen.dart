@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
@@ -17,6 +20,40 @@ class SettingsScreen extends StatelessWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Failed to export data.')));
+    }
+  }
+
+  Future<void> _importData(BuildContext context, AppProvider provider) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final bytes = result.files.first.bytes;
+      if (bytes == null) {
+        throw const FormatException('Selected file has no readable content.');
+      }
+
+      final content = utf8.decode(bytes);
+      final counts = await provider.importDataFromJsonString(content);
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Imported ${counts['workouts']} workouts and ${counts['quests']} quests.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
     }
   }
 
@@ -88,6 +125,15 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 trailing: const Icon(Icons.download),
                 onTap: () => _exportData(context, provider),
+              ),
+              const Divider(),
+              ListTile(
+                title: const Text('Import Data (JSON)'),
+                subtitle: const Text(
+                  'Restore workouts and quests from JSON file',
+                ),
+                trailing: const Icon(Icons.upload_file),
+                onTap: () => _importData(context, provider),
               ),
               const Divider(),
               const SizedBox(height: 32),
