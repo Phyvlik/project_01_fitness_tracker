@@ -239,7 +239,7 @@ class AppProvider extends ChangeNotifier {
       // Recommend recovery after back-to-back high intensity
       _aiSuggestion = 'Rest day or Light Recovery Session';
       _aiReason =
-          'Based on your last ${consecutiveHigh} high-intensity sessions, your muscles need recovery time. Consider a walk, stretch, or yoga to stay active without overtraining.';
+          'Based on your last $consecutiveHigh high-intensity sessions, your muscles need recovery time. Consider a walk, stretch, or yoga to stay active without overtraining.';
     } else if (daysSince >= 3) {
       // Been a while — motivate them back
       _aiSuggestion = 'Medium Intensity Full-Body Workout';
@@ -249,7 +249,7 @@ class AppProvider extends ChangeNotifier {
       // Too many easy workouts — push harder
       _aiSuggestion = 'High Intensity Strength Training';
       _aiReason =
-          'Based on your last ${recent.length} sessions (${lowCount} were low intensity), it\'s time to push harder for better results.';
+          'Based on your last ${recent.length} sessions ($lowCount were low intensity), it\'s time to push harder for better results.';
     } else if (highCount == 0) {
       _aiSuggestion = 'Increase Intensity This Session';
       _aiReason =
