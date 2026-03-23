@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/add_workout_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/insights_screen.dart';
 import '../screens/workout_log_screen.dart';
@@ -39,7 +40,17 @@ class _MainNavigationState extends State<MainNavigation> {
           child: _screens[_selectedIndex],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const AddWorkoutScreen()));
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Log Workout'),
+      ),
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
