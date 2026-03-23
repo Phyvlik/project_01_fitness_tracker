@@ -82,14 +82,21 @@ Our app tackles these challenges by:
 - **Weekly Goal**: Set personal weekly workout target (3-7 workouts)
 - **Weight Unit**: Toggle between lbs and kg
 - **Notifications**: Enable/disable workout reminders
+- **Data Export**: Export workouts and quests to local JSON file
 
-#### 6. **Exercise Library**
+#### 6. **Insights Screen (`InsightsScreen`)**
+- Visual trend chart for last 14 days of workouts
+- Performance summary cards (total workouts, streak, weekly progress, quest completion)
+- Responsive layout adapts for portrait and landscape
+
+#### 7. **Exercise Library**
 - 30+ pre-seeded exercises across 8 categories:
   - Chest, Back, Legs, Shoulders, Arms, Core, Cardio, Full Body
 - Exercise metadata: difficulty, equipment type, description
 - Quick exercise selection during workout logging
+- Advanced filters by category, difficulty, and equipment
 
-#### 7. **AI-Powered Suggestions** (Rule-Based Local AI)
+#### 8. **AI-Powered Suggestions** (Rule-Based Local AI)
 The app analyzes the last 5 workouts and provides intelligent suggestions:
 
 - **Recovery Detection**: If 2+ consecutive high-intensity sessions → suggests "Rest day or Light Recovery Session"
@@ -124,7 +131,7 @@ Each suggestion includes:
 | `shared_preferences` | ^2.3.2 | Key-value storage for user settings |
 | `provider` | ^6.1.2 | State management and app-wide data access |
 | `intl` | ^0.19.0 | Date/time formatting and localization |
-| `fl_chart` | ^0.68.0 | Data visualization (future enhancement) |
+| `fl_chart` | ^0.68.0 | Local workout trend chart visualization |
 
 ### Development Tools
 - **VS Code**: Code editor
