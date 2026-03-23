@@ -1,0 +1,40 @@
+name: project_01_fitness_tracker
+description: "Fitness Quest & Training Challenge Hub - A personalized fitness tracking app with workout quests, exercise library, progress charts, and AI-powered suggestions."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Local database - SQLite
+  sqflite: ^2.3.3+1
+
+  # File system paths for database location
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # Key-value storage for user settings/preferences
+  shared_preferences: ^2.3.2
+
+  # State management
+  provider: ^6.1.2
+
+  # Date/time formatting and localization
+  intl: ^0.19.0
+
+  # Data visualization charts (bonus feature)
+  fl_chart: ^0.68.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
