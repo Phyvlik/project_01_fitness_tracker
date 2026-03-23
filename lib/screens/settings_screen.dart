@@ -5,6 +5,21 @@ import '../providers/app_provider.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _exportData(BuildContext context, AppProvider provider) async {
+    try {
+      final path = await provider.exportDataToJson();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Data exported to: $path')),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to export data.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -64,6 +79,13 @@ class SettingsScreen extends StatelessWidget {
                     if (value != null) provider.setWeightUnit(value);
                   },
                 ),
+              ),
+              const Divider(),
+              ListTile(
+                title: const Text('Export Data (JSON)'),
+                subtitle: const Text('Save workouts and quests to local storage'),
+                trailing: const Icon(Icons.download),
+                onTap: () => _exportData(context, provider),
               ),
               const Divider(),
               const SizedBox(height: 32),

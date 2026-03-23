@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../db/database_helper.dart';
 import '../models/workout.dart';
@@ -14,8 +18,7 @@ class AppProvider extends ChangeNotifier {
   bool _isDarkMode = false;
   bool get isDarkMode => _isDarkMode;
 
-  ThemeMode get themeMode =>
-      _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
   // ---------------------------------------------------------------------------
   // Workout state
@@ -47,7 +50,10 @@ class AppProvider extends ChangeNotifier {
       final parts = w.date.split('-');
       if (parts.length != 3) return false;
       final d = DateTime(
-          int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
       return d.isAfter(weekAgo);
     }).length;
   }
@@ -209,7 +215,8 @@ class AppProvider extends ChangeNotifier {
   /// "Based on your last X sessions" style explanation makes the logic transparent.
   void _generateAiSuggestion() {
     if (_workouts.isEmpty) {
-      _aiSuggestion = 'Log your first workout to get a personalized recommendation!';
+      _aiSuggestion =
+          'Log your first workout to get a personalized recommendation!';
       _aiReason = 'No workout history yet.';
       notifyListeners();
       return;
@@ -268,6 +275,54 @@ class AppProvider extends ChangeNotifier {
     final parts = dateStr.split('-');
     if (parts.length != 3) return DateTime.now();
     return DateTime(
-        int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+      int.parse(parts[2]),
+    );
+  }
+
+  /// Exports workouts and quests to a JSON file in local app storage.
+  /// Returns the absolute file path for user confirmation in UI.
+  Future<String> exportDataToJson() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final now = DateTime.now();
+    final stamp =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+    final file = File('${dir.path}/fitness_tracker_export_$stamp.json');
+
+    final payload = {
+      'exported_at': now.toIso8601String(),
+      'workouts': _workouts
+          .map(
+            (w) => {
+              'id': w.id,
+              'name': w.name,
+              'date': w.date,
+              'duration': w.duration,
+              'notes': w.notes,
+              'intensity': w.intensity,
+            },
+          )
+          .toList(),
+      'quests': _quests
+          .map(
+            (q) => {
+              'id': q.id,
+              'name': q.name,
+              'description': q.description,
+              'target_workouts': q.targetWorkouts,
+              'completed_workouts': q.completedWorkouts,
+              'reward': q.reward,
+              'is_completed': q.isCompleted,
+              'created_date': q.createdDate,
+            },
+          )
+          .toList(),
+    };
+
+    await file.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(payload),
+    );
+    return file.path;
   }
 }
