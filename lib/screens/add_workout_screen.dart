@@ -39,9 +39,13 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
     super.dispose();
   }
 
+  /// Formats a DateTime object to ISO 8601 format (yyyy-MM-dd)
+  /// Used for database storage and consistency across the app
   String _formatDate(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
+  /// Opens a date picker and updates the selected date if user confirms
+  /// Only allows dates from 2020 to today (cannot log future workouts)
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -92,7 +96,11 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
               const SizedBox(height: 12),
               _buildNumberField(repsCtrl, 'Reps', Icons.repeat_one),
               const SizedBox(height: 12),
-              _buildNumberField(weightCtrl, 'Weight (lbs)', Icons.monitor_weight_outlined),
+              _buildNumberField(
+                weightCtrl,
+                'Weight (lbs)',
+                Icons.monitor_weight_outlined,
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: notesCtrl,
@@ -117,15 +125,17 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
               final weight = double.tryParse(weightCtrl.text) ?? 0.0;
 
               setState(() {
-                _sessionExercises.add(WorkoutExercise(
-                  workoutId: 0, // placeholder — set on save
-                  exerciseId: exercise.id!,
-                  exerciseName: exercise.name,
-                  sets: sets,
-                  reps: reps,
-                  weight: weight,
-                  notes: notesCtrl.text.trim(),
-                ));
+                _sessionExercises.add(
+                  WorkoutExercise(
+                    workoutId: 0, // placeholder — set on save
+                    exerciseId: exercise.id!,
+                    exerciseName: exercise.name,
+                    sets: sets,
+                    reps: reps,
+                    weight: weight,
+                    notes: notesCtrl.text.trim(),
+                  ),
+                );
               });
               Navigator.pop(ctx);
             },
@@ -136,8 +146,14 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
     );
   }
 
+  /// Builds a reusable text field for numeric input (sets, reps, weight)
+  /// Supports decimal input for weight values
+  /// Parameters: controller (editable text), label (field name), icon (visual indicator)
   Widget _buildNumberField(
-      TextEditingController ctrl, String label, IconData icon) {
+    TextEditingController ctrl,
+    String label,
+    IconData icon,
+  ) {
     return TextField(
       controller: ctrl,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -194,10 +210,7 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
               ),
             )
           else
-            TextButton(
-              onPressed: _saveWorkout,
-              child: const Text('Save'),
-            ),
+            TextButton(onPressed: _saveWorkout, child: const Text('Save')),
         ],
       ),
       body: Form(
@@ -215,8 +228,9 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
                 prefixIcon: Icon(Icons.fitness_center),
                 hintText: 'e.g. Morning Push Day',
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Please enter a name' : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Please enter a name'
+                  : null,
             ),
             const SizedBox(height: 16),
 
@@ -254,18 +268,17 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
             const SizedBox(height: 16),
 
             // Intensity selector
-            Text(
-              'Intensity',
-              style: theme.textTheme.labelLarge,
-            ),
+            Text('Intensity', style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             SegmentedButton<String>(
               segments: Workout.intensityLevels
-                  .map((level) => ButtonSegment<String>(
-                        value: level,
-                        label: Text(level),
-                        icon: Icon(_intensityIcon(level)),
-                      ))
+                  .map(
+                    (level) => ButtonSegment<String>(
+                      value: level,
+                      label: Text(level),
+                      icon: Icon(_intensityIcon(level)),
+                    ),
+                  )
                   .toList(),
               selected: {_selectedIntensity},
               onSelectionChanged: (s) =>
@@ -332,8 +345,7 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor:
-                          theme.colorScheme.primaryContainer,
+                      backgroundColor: theme.colorScheme.primaryContainer,
                       child: Text(
                         '${i + 1}',
                         style: TextStyle(
@@ -348,10 +360,12 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
                       '${ex.weight > 0 ? ' @ ${ex.weight} lbs' : ''}',
                     ),
                     trailing: IconButton(
-                      icon: const Icon(Icons.remove_circle_outline,
-                          color: Colors.red),
-                      onPressed: () => setState(
-                          () => _sessionExercises.removeAt(i)),
+                      icon: const Icon(
+                        Icons.remove_circle_outline,
+                        color: Colors.red,
+                      ),
+                      onPressed: () =>
+                          setState(() => _sessionExercises.removeAt(i)),
                     ),
                   ),
                 );
@@ -398,12 +412,11 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
   String _filterCategory = '';
 
   List<Exercise> get _filtered => widget.exercises.where((e) {
-        final matchSearch = _search.isEmpty ||
-            e.name.toLowerCase().contains(_search.toLowerCase());
-        final matchCat =
-            _filterCategory.isEmpty || e.category == _filterCategory;
-        return matchSearch && matchCat;
-      }).toList();
+    final matchSearch =
+        _search.isEmpty || e.name.toLowerCase().contains(_search.toLowerCase());
+    final matchCat = _filterCategory.isEmpty || e.category == _filterCategory;
+    return matchSearch && matchCat;
+  }).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -429,9 +442,12 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            Text('Select Exercise',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Select Exercise',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 12),
             // Search field
             TextField(
@@ -458,8 +474,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                   return FilterChip(
                     label: Text(label),
                     selected: selected,
-                    onSelected: (_) =>
-                        setState(() => _filterCategory = cat),
+                    onSelected: (_) => setState(() => _filterCategory = cat),
                   );
                 },
               ),
@@ -474,7 +489,9 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                   final ex = _filtered[i];
                   return ListTile(
                     title: Text(ex.name),
-                    subtitle: Text('${ex.category} · ${ex.difficulty} · ${ex.equipment}'),
+                    subtitle: Text(
+                      '${ex.category} · ${ex.difficulty} · ${ex.equipment}',
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       widget.onSelected(ex);
