@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
+import '../screens/insights_screen.dart';
 import '../screens/workout_log_screen.dart';
 import '../screens/settings_screen.dart';
 
@@ -16,6 +17,7 @@ class _MainNavigationState extends State<MainNavigation> {
   static const List<Widget> _screens = [
     HomeScreen(),
     WorkoutLogScreen(),
+    InsightsScreen(),
     SettingsScreen(),
   ];
 
@@ -35,6 +37,10 @@ class _MainNavigationState extends State<MainNavigation> {
           BottomNavigationBarItem(
             icon: Icon(Icons.fitness_center),
             label: 'Workouts',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.insights),
+            label: 'Insights',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
