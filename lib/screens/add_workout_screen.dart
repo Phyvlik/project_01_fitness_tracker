@@ -31,6 +31,11 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
 
   bool _isSaving = false;
 
+  // Normalizes user-entered text before persisting to SQLite.
+  String _sanitizeText(String input) {
+    return input.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -124,6 +129,17 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
               final reps = int.tryParse(repsCtrl.text) ?? 10;
               final weight = double.tryParse(weightCtrl.text) ?? 0.0;
 
+              if (sets <= 0 || reps <= 0 || weight < 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Sets and reps must be greater than 0, weight cannot be negative.',
+                    ),
+                  ),
+                );
+                return;
+              }
+
               setState(() {
                 _sessionExercises.add(
                   WorkoutExercise(
@@ -133,7 +149,7 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
                     sets: sets,
                     reps: reps,
                     weight: weight,
-                    notes: notesCtrl.text.trim(),
+                    notes: _sanitizeText(notesCtrl.text),
                   ),
                 );
               });
@@ -168,13 +184,47 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
   Future<void> _saveWorkout() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final duration = int.tryParse(_durationController.text.trim()) ?? 0;
+    if (duration <= 0 || duration > 600) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Duration must be between 1 and 600 minutes.'),
+        ),
+      );
+      return;
+    }
+
+    if (_sessionExercises.isEmpty) {
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Save without exercises?'),
+          content: const Text(
+            'This workout has no exercises. Do you want to save it anyway?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save Anyway'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSave != true) return;
+    }
+
     setState(() => _isSaving = true);
 
     final workout = Workout(
-      name: _nameController.text.trim(),
+      name: _sanitizeText(_nameController.text),
       date: _formatDate(_selectedDate),
-      duration: int.tryParse(_durationController.text) ?? 0,
-      notes: _notesController.text.trim(),
+      duration: duration,
+      notes: _sanitizeText(_notesController.text),
       intensity: _selectedIntensity,
       exercises: _sessionExercises,
     );
@@ -262,6 +312,10 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Enter duration';
                 if (int.tryParse(v) == null) return 'Enter a valid number';
+                final parsed = int.parse(v);
+                if (parsed <= 0 || parsed > 600) {
+                  return 'Use a value between 1 and 600';
+                }
                 return null;
               },
             ),
