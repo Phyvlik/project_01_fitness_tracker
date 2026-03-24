@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../db/database_helper.dart';
+import '../models/exercise.dart';
 import '../providers/app_provider.dart';
 
 /// Visual analytics page that summarizes trends from local workout history.
@@ -15,17 +16,34 @@ class InsightsScreen extends StatefulWidget {
 }
 
 class _InsightsScreenState extends State<InsightsScreen> {
-  late Future<Map<String, int>> _trendFuture;
+  late Future<Map<String, double>> _trendFuture;
+
+  String _selectedMetric = 'count';
+  String _selectedCategory = 'All';
 
   @override
   void initState() {
     super.initState();
-    _trendFuture = DatabaseHelper.instance.getWorkoutCountByDate(14);
+    _loadTrend();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadTrend();
+  }
+
+  void _loadTrend() {
+    _trendFuture = DatabaseHelper.instance.getTrendData(
+      days: 14,
+      metric: _selectedMetric,
+      category: _selectedMetric == 'intensity' ? 'All' : _selectedCategory,
+    );
   }
 
   Future<void> _refreshData() async {
     setState(() {
-      _trendFuture = DatabaseHelper.instance.getWorkoutCountByDate(14);
+      _loadTrend();
     });
   }
 
@@ -43,14 +61,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
             final isLandscape = orientation == Orientation.landscape;
             final cardsPerRow = isLandscape ? 4 : 2;
 
-            return FutureBuilder<Map<String, int>>(
+            return FutureBuilder<Map<String, double>>(
               future: _trendFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final trend = snapshot.data ?? <String, int>{};
+                final trend = snapshot.data ?? <String, double>{};
                 final chartSpots = _toSpots(trend);
 
                 return ListView(
@@ -95,6 +113,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                       ],
                     ),
                     const SizedBox(height: 18),
+
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -102,7 +121,116 @@ class _InsightsScreenState extends State<InsightsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Last 14 Days Trend',
+                              'Trend Filters',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment<String>(
+                                  value: 'count',
+                                  label: Text('Count'),
+                                  icon: Icon(Icons.calendar_today),
+                                ),
+                                ButtonSegment<String>(
+                                  value: 'weight',
+                                  label: Text('Weight'),
+                                  icon: Icon(Icons.monitor_weight_outlined),
+                                ),
+                                ButtonSegment<String>(
+                                  value: 'reps',
+                                  label: Text('Reps'),
+                                  icon: Icon(Icons.repeat),
+                                ),
+                                ButtonSegment<String>(
+                                  value: 'intensity',
+                                  label: Text('Intensity'),
+                                  icon: Icon(Icons.local_fire_department),
+                                ),
+                              ],
+                              selected: {_selectedMetric},
+                              onSelectionChanged: (selection) {
+                                setState(() {
+                                  _selectedMetric = selection.first;
+                                  if (_selectedMetric == 'intensity') {
+                                    _selectedCategory = 'All';
+                                  }
+                                  _loadTrend();
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              value: _selectedCategory,
+                              decoration: const InputDecoration(
+                                labelText: 'Workout Type',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'All',
+                                  child: Text('All'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Chest',
+                                  child: Text('Chest'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Back',
+                                  child: Text('Back'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Legs',
+                                  child: Text('Legs'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Shoulders',
+                                  child: Text('Shoulders'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Arms',
+                                  child: Text('Arms'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Core',
+                                  child: Text('Core'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Cardio',
+                                  child: Text('Cardio'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Full Body',
+                                  child: Text('Full Body'),
+                                ),
+                              ],
+                              onChanged: _selectedMetric == 'intensity'
+                                  ? null
+                                  : (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _selectedCategory = value;
+                                        _loadTrend();
+                                      });
+                                    },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _chartTitle(),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -110,7 +238,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                             const SizedBox(height: 12),
                             SizedBox(
                               height: 220,
-                              child: chartSpots.isEmpty
+                              child: chartSpots.every((spot) => spot.y == 0)
                                   ? Center(
                                       child: Text(
                                         'No trend data yet. Log workouts to see chart insights.',
@@ -138,7 +266,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                             sideTitles: SideTitles(
                                               showTitles: true,
                                               interval: 1,
-                                              reservedSize: 28,
+                                              reservedSize: 36,
                                             ),
                                           ),
                                           bottomTitles: AxisTitles(
@@ -165,9 +293,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                             isCurved: true,
                                             barWidth: 3,
                                             color: theme.colorScheme.primary,
-                                            dotData: const FlDotData(
-                                              show: false,
-                                            ),
+                                            dotData:
+                                                const FlDotData(show: true),
                                             belowBarData: BarAreaData(
                                               show: true,
                                               color: theme.colorScheme.primary
@@ -198,14 +325,35 @@ class _InsightsScreenState extends State<InsightsScreen> {
     return '$completed/${provider.quests.length} done';
   }
 
-  List<FlSpot> _toSpots(Map<String, int> trend) {
-    if (trend.isEmpty) return const [];
+  String _chartTitle() {
+    final metricLabel = switch (_selectedMetric) {
+      'count' => 'Workout Count',
+      'weight' => 'Weight Volume',
+      'reps' => 'Total Reps',
+      'intensity' => 'Average Intensity',
+      _ => 'Trend',
+    };
 
-    final keys = trend.keys.toList()..sort();
-    return List<FlSpot>.generate(
-      keys.length,
-      (index) => FlSpot(index.toDouble(), (trend[keys[index]] ?? 0).toDouble()),
-    );
+    final categoryLabel =
+        _selectedMetric == 'intensity' ? 'All Workouts' : _selectedCategory;
+
+    return 'Last 14 Days: $metricLabel ($categoryLabel)';
+  }
+
+  List<FlSpot> _toSpots(Map<String, double> trend) {
+    final now = DateTime.now();
+    final spots = <FlSpot>[];
+
+    for (int i = 13; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final key =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+      final value = trend[key] ?? 0.0;
+      spots.add(FlSpot((13 - i).toDouble(), value));
+    }
+
+    return spots;
   }
 }
 

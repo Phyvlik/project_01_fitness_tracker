@@ -376,6 +376,108 @@ class DatabaseHelper {
     await batch.commit(noResult: true);
   }
 
+  //---------------------------------------------------------------------------
+  // STATISTICS
+  //---------------------------------------------------------------------------
+    /// Returns trend data for the last [days] days.
+  /// metric:
+  /// - 'count' => number of workouts per day
+  /// - 'reps' => total reps per day
+  /// - 'weight' => total volume per day (sets * reps * weight)
+  /// - 'intensity' => average intensity score per day (Low=1, Medium=2, High=3)
+  ///
+  /// category:
+  /// - 'All' for no category filter
+  /// - otherwise filters by exercise category (Chest, Back, Legs, etc.)
+  Future<Map<String, double>> getTrendData({
+    required int days,
+    String metric = 'count',
+    String category = 'All',
+  }) async {
+    final db = await database;
+
+    final cutoff = DateTime.now().subtract(Duration(days: days - 1));
+    final cutoffStr =
+        '${cutoff.year}-${cutoff.month.toString().padLeft(2, '0')}-${cutoff.day.toString().padLeft(2, '0')}';
+
+    if (metric == 'count') {
+      final maps = await db.rawQuery(
+        '''
+        SELECT date, COUNT(*) as value
+        FROM workouts
+        WHERE date >= ?
+        GROUP BY date
+        ORDER BY date ASC
+        ''',
+        [cutoffStr],
+      );
+
+      return {
+        for (final row in maps)
+          row['date'] as String: (row['value'] as num).toDouble(),
+      };
+    }
+
+    if (metric == 'intensity') {
+      final maps = await db.rawQuery(
+        '''
+        SELECT date,
+          AVG(
+            CASE intensity
+              WHEN 'Low' THEN 1
+              WHEN 'Medium' THEN 2
+              WHEN 'High' THEN 3
+              ELSE 0
+            END
+          ) as value
+        FROM workouts
+        WHERE date >= ?
+        GROUP BY date
+        ORDER BY date ASC
+        ''',
+        [cutoffStr],
+      );
+
+      return {
+        for (final row in maps)
+          row['date'] as String: (row['value'] as num).toDouble(),
+      };
+    }
+
+    String valueExpr;
+    if (metric == 'reps') {
+      valueExpr = 'SUM(we.sets * we.reps)';
+    } else {
+      valueExpr = 'SUM(we.sets * we.reps * we.weight)';
+    }
+
+    final args = <dynamic>[cutoffStr];
+    String categoryClause = '';
+
+    if (category != 'All') {
+      categoryClause = 'AND e.category = ?';
+      args.add(category);
+    }
+
+    final maps = await db.rawQuery(
+      '''
+      SELECT w.date, $valueExpr as value
+      FROM workout_exercises we
+      INNER JOIN workouts w ON we.workout_id = w.id
+      INNER JOIN exercises e ON we.exercise_id = e.id
+      WHERE w.date >= ? $categoryClause
+      GROUP BY w.date
+      ORDER BY w.date ASC
+      ''',
+      args,
+    );
+
+    return {
+      for (final row in maps)
+        row['date'] as String: (row['value'] as num?)?.toDouble() ?? 0.0,
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // STREAK CALCULATION
   // ---------------------------------------------------------------------------
