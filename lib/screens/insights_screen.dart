@@ -70,6 +70,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
                 final trend = snapshot.data ?? <String, double>{};
                 final chartSpots = _toSpots(trend);
+                final maxY = _getMaxY(chartSpots);
+                final yInterval = _getYAxisInterval(maxY);
 
                 return ListView(
                   padding: const EdgeInsets.all(16),
@@ -249,6 +251,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                   : LineChart(
                                       LineChartData(
                                         minY: 0,
+                                        maxY: maxY,
                                         gridData: const FlGridData(show: true),
                                         borderData: FlBorderData(show: false),
                                         titlesData: FlTitlesData(
@@ -262,10 +265,10 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                               showTitles: false,
                                             ),
                                           ),
-                                          leftTitles: const AxisTitles(
+                                          leftTitles: AxisTitles(
                                             sideTitles: SideTitles(
                                               showTitles: true,
-                                              interval: 1,
+                                              interval: yInterval,
                                               reservedSize: 36,
                                             ),
                                           ),
@@ -292,6 +295,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                             spots: chartSpots,
                                             isCurved: true,
                                             barWidth: 3,
+                                            preventCurveOverShooting: true,
                                             color: theme.colorScheme.primary,
                                             dotData:
                                                 const FlDotData(show: true),
@@ -339,7 +343,54 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
     return 'Last 14 Days: $metricLabel ($categoryLabel)';
   }
+  double _getMaxY(List<FlSpot> spots) {
+    if (spots.isEmpty) return 4;
 
+    final highest = spots
+        .map((spot) => spot.y)
+        .reduce((a, b) => a > b ? a : b);
+
+    if (highest <= 0) return 4;
+
+    if (_selectedMetric == 'count') {
+      return (highest + 1).ceilToDouble();
+    }
+
+    if (_selectedMetric == 'intensity') {
+      return 3;
+    }
+
+    if (_selectedMetric == 'reps') {
+      if (highest <= 20) return 25;
+      if (highest <= 50) return 60;
+      if (highest <= 100) return 120;
+      return ((highest / 25).ceil() * 25).toDouble();
+    }
+
+    // weight
+    if (highest <= 100) return 120;
+    if (highest <= 500) return 600;
+    if (highest <= 1000) return 1200;
+    return ((highest / 250).ceil() * 250).toDouble();
+  }
+
+  double _getYAxisInterval(double maxY) {
+    if (_selectedMetric == 'count') return 1;
+    if (_selectedMetric == 'intensity') return 1;
+
+    if (_selectedMetric == 'reps') {
+      if (maxY <= 25) return 5;
+      if (maxY <= 60) return 10;
+      if (maxY <= 120) return 20;
+      return 25;
+    }
+
+    // weight
+    if (maxY <= 120) return 20;
+    if (maxY <= 600) return 100;
+    if (maxY <= 1200) return 200;
+    return 250;
+  }
   List<FlSpot> _toSpots(Map<String, double> trend) {
     final now = DateTime.now();
     final spots = <FlSpot>[];
