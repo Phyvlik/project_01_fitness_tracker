@@ -112,6 +112,36 @@ class HomeScreen extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
+                      //active quest progress
+                      if (provider.quests.any((q) => !q.isCompleted)) ...[
+                        Text(
+                        'Active Quests',
+                         style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                ),
+                       const SizedBox(height: 10),
+
+                 ...provider.quests
+                   .where((q) => !q.isCompleted)
+                      .take(2)
+                       .map(
+                    (q) => Padding(
+                     padding: const EdgeInsets.only(bottom: 10),
+                       child: _QuestProgressCard(
+                       title: q.name,
+                      subtitle: q.description,
+                      current: q.completedWorkouts,
+                      target: q.targetWorkouts,
+                      reward: q.reward,
+                      isCompleted: q.isCompleted,
+          ),
+        ),
+      ),
+
+  const SizedBox(height: 20),
+],
+
                       // AI suggestion card
                       AiSuggestionCard(
                         suggestion: provider.aiSuggestion,
@@ -268,6 +298,87 @@ class _WeeklyGoalBar extends StatelessWidget {
                 valueColor: AlwaysStoppedAnimation<Color>(
                   isComplete ? Colors.green : theme.colorScheme.primary,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class _QuestProgressCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final int current;
+  final int target;
+  final String reward;
+  final bool isCompleted;
+
+  const _QuestProgressCard({
+    required this.title,
+    required this.subtitle,
+    required this.current,
+    required this.target,
+    required this.reward,
+    required this.isCompleted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
+    final accentColor = isCompleted ? Colors.green : theme.colorScheme.primary;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isCompleted ? Icons.emoji_events : Icons.flag,
+                  color: accentColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$current / $target workouts',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Reward: $reward',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: accentColor,
               ),
             ),
           ],
