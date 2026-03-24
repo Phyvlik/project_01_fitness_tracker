@@ -447,7 +447,10 @@ class DatabaseHelper {
     String valueExpr;
     if (metric == 'reps') {
       valueExpr = 'SUM(we.sets * we.reps)';
-    } else {
+    } else if (metric == 'weight') {
+      valueExpr = 'AVG(we.weight)';
+    }
+    else{
       valueExpr = 'SUM(we.sets * we.reps * we.weight)';
     }
 
