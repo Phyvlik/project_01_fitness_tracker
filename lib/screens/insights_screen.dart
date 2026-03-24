@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../db/database_helper.dart';
-import '../models/exercise.dart';
 import '../providers/app_provider.dart';
 
 /// Visual analytics page that summarizes trends from local workout history.
@@ -20,6 +19,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
   String _selectedMetric = 'count';
   String _selectedCategory = 'All';
+  int _selectedDays = 14;
 
   @override
   void initState() {
@@ -35,7 +35,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
   void _loadTrend() {
     _trendFuture = DatabaseHelper.instance.getTrendData(
-      days: 14,
+      days: _selectedDays,
       metric: _selectedMetric,
       category: _selectedMetric == 'intensity' ? 'All' : _selectedCategory,
     );
@@ -218,6 +218,47 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                       });
                                     },
                             ),
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<int>(
+                              value: _selectedDays,
+                              decoration: const InputDecoration(
+                                labelText: 'Time Range',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 7,
+                                  child: Text('Last 7 Days'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 14,
+                                  child: Text('Last 14 Days'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 30,
+                                  child: Text('Last Month'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 90,
+                                  child: Text('Last 3 Months'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 180,
+                                  child: Text('Last 6 Months'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 365,
+                                  child: Text('Last Year'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value == null) return;
+                                setState(() {
+                                  _selectedDays = value;
+                                  _loadTrend();
+                                });
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -269,20 +310,30 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                             sideTitles: SideTitles(
                                               showTitles: true,
                                               interval: yInterval,
-                                              reservedSize: 36,
+                                              reservedSize: 44,
                                             ),
                                           ),
                                           bottomTitles: AxisTitles(
                                             sideTitles: SideTitles(
                                               showTitles: true,
                                               reservedSize: 28,
-                                              interval: 3,
+                                              interval: _bottomTitleInterval(),
                                               getTitlesWidget: (value, meta) {
-                                                if (value % 3 != 0) {
+                                                final x = value.toInt();
+
+                                                if (x < 0 ||
+                                                    x >= _selectedDays) {
                                                   return const SizedBox.shrink();
                                                 }
+
+                                                if (value %
+                                                        _bottomTitleInterval() !=
+                                                    0) {
+                                                  return const SizedBox.shrink();
+                                                }
+
                                                 return Text(
-                                                  'D${value.toInt() + 1}',
+                                                  'D${x + 1}',
                                                   style:
                                                       theme.textTheme.bodySmall,
                                                 );
@@ -294,8 +345,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                           LineChartBarData(
                                             spots: chartSpots,
                                             isCurved: true,
-                                            barWidth: 3,
                                             preventCurveOverShooting: true,
+                                            barWidth: 3,
                                             color: theme.colorScheme.primary,
                                             dotData:
                                                 const FlDotData(show: true),
@@ -332,7 +383,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
   String _chartTitle() {
     final metricLabel = switch (_selectedMetric) {
       'count' => 'Workout Count',
-      'weight' => 'Weight Volume',
+      'weight' => 'Average Weight',
       'reps' => 'Total Reps',
       'intensity' => 'Average Intensity',
       _ => 'Trend',
@@ -341,8 +392,37 @@ class _InsightsScreenState extends State<InsightsScreen> {
     final categoryLabel =
         _selectedMetric == 'intensity' ? 'All Workouts' : _selectedCategory;
 
-    return 'Last 14 Days: $metricLabel ($categoryLabel)';
+    return '${_rangeLabel()}: $metricLabel ($categoryLabel)';
   }
+
+  String _rangeLabel() {
+    switch (_selectedDays) {
+      case 7:
+        return 'Last 7 Days';
+      case 14:
+        return 'Last 14 Days';
+      case 30:
+        return 'Last Month';
+      case 90:
+        return 'Last 3 Months';
+      case 180:
+        return 'Last 6 Months';
+      case 365:
+        return 'Last Year';
+      default:
+        return 'Last $_selectedDays Days';
+    }
+  }
+
+  double _bottomTitleInterval() {
+    if (_selectedDays <= 7) return 1;
+    if (_selectedDays <= 14) return 3;
+    if (_selectedDays <= 30) return 5;
+    if (_selectedDays <= 90) return 15;
+    if (_selectedDays <= 180) return 30;
+    return 60;
+  }
+
   double _getMaxY(List<FlSpot> spots) {
     if (spots.isEmpty) return 4;
 
@@ -367,11 +447,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
       return ((highest / 25).ceil() * 25).toDouble();
     }
 
-    // weight
-    if (highest <= 100) return 120;
-    if (highest <= 500) return 600;
-    if (highest <= 1000) return 1200;
-    return ((highest / 250).ceil() * 250).toDouble();
+    if (_selectedMetric == 'weight') {
+      if (highest <= 50) return 60;
+      if (highest <= 100) return 120;
+      if (highest <= 200) return 240;
+      return ((highest / 50).ceil() * 50).toDouble();
+    }
+
+    return (highest + 1).ceilToDouble();
   }
 
   double _getYAxisInterval(double maxY) {
@@ -385,23 +468,27 @@ class _InsightsScreenState extends State<InsightsScreen> {
       return 25;
     }
 
-    // weight
-    if (maxY <= 120) return 20;
-    if (maxY <= 600) return 100;
-    if (maxY <= 1200) return 200;
-    return 250;
+    if (_selectedMetric == 'weight') {
+      if (maxY <= 60) return 10;
+      if (maxY <= 120) return 20;
+      return 25;
+    }
+
+    return 1;
   }
+
   List<FlSpot> _toSpots(Map<String, double> trend) {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final spots = <FlSpot>[];
 
-    for (int i = 13; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
+    for (int i = _selectedDays - 1; i >= 0; i--) {
+      final date = today.subtract(Duration(days: i));
       final key =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
       final value = trend[key] ?? 0.0;
-      spots.add(FlSpot((13 - i).toDouble(), value));
+      spots.add(FlSpot((_selectedDays - 1 - i).toDouble(), value));
     }
 
     return spots;
