@@ -34,6 +34,7 @@ class AppProvider extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   List<Quest> _quests = [];
   List<Quest> get quests => List.unmodifiable(_quests);
+  
 
   // ---------------------------------------------------------------------------
   // Stats
