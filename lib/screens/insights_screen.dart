@@ -165,7 +165,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                             ),
                             const SizedBox(height: 12),
                             DropdownButtonFormField<String>(
-                              value: _selectedCategory,
+                              initialValue: _selectedCategory,
                               decoration: const InputDecoration(
                                 labelText: 'Workout Type',
                                 border: OutlineInputBorder(),
@@ -220,7 +220,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                             ),
                             const SizedBox(height: 12),
                             DropdownButtonFormField<int>(
-                              value: _selectedDays,
+                              initialValue: _selectedDays,
                               decoration: const InputDecoration(
                                 labelText: 'Time Range',
                                 border: OutlineInputBorder(),
@@ -310,7 +310,38 @@ class _InsightsScreenState extends State<InsightsScreen> {
                                             sideTitles: SideTitles(
                                               showTitles: true,
                                               interval: yInterval,
-                                              reservedSize: 44,
+                                              reservedSize: 52,
+                                              getTitlesWidget: (value, meta){
+                                                if (_selectedMetric == 'intensity') {
+                                                  switch (value.toInt()) {
+                                                    case 0:
+                                                      return Text(
+                                                        'Rest',
+                                                        style: theme.textTheme.bodySmall,
+                                                      );
+                                                    case 1:
+                                                      return Text(
+                                                        'Light',
+                                                        style: theme.textTheme.bodySmall,
+                                                      );
+                                                    case 2:
+                                                      return Text(
+                                                        'Medium',
+                                                        style: theme.textTheme.bodySmall,
+                                                      );
+                                                    case 3:
+                                                      return Text(
+                                                        'Intense',
+                                                        style: theme.textTheme.bodySmall,
+                                                      );
+                                                       default:
+                                                  return const SizedBox.shrink();
+                                                  }
+                                                }
+                                                return Text(
+    value.toInt().toString(),
+    style: theme.textTheme.bodySmall,);
+                                              },
                                             ),
                                           ),
                                           bottomTitles: AxisTitles(
