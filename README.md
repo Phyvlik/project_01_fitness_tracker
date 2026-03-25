@@ -9,6 +9,8 @@ A personalized fitness tracking application built with **Flutter** that combines
 - [Technologies Used](#technologies-used)
 - [Installation Instructions](#installation-instructions)
 - [Usage Guide](#usage-guide)
+- [Documentation Checklist](#documentation-checklist)
+- [API Notes](#api-notes)
 - [Database Schema](#database-schema)
 - [Known Issues](#known-issues)
 - [Future Enhancements](#future-enhancements)
@@ -233,6 +235,22 @@ Output: `build/app/outputs/flutter-apk/app-release.apk`
    - Reasoning behind the suggestion
    - Updates after each logged workout
 
+## ✅ Documentation Checklist
+
+- [x] Clear README with project summary
+- [x] Step-by-step setup instructions
+- [x] Simple user guide for main app flows
+- [x] Helpful comments in important code sections (see `lib/db/database_helper.dart`, `lib/providers/app_provider.dart`, and `lib/main.dart`)
+- [x] API notes included (only where relevant)
+
+## 🔌 API Notes
+
+This project does **not** use any external web API.
+
+- AI recommendations are local and rule-based (no network calls)
+- Data is stored locally using SQLite and SharedPreferences
+- Import/export uses local JSON files on device storage
+
 ## 🗄️ Database Schema
 
 ### Tables Overview
@@ -343,6 +361,7 @@ exercises (1) ─── (*) workout_exercises
 | Name | Role | Contributions |
 |------|------|---|
 | Vivek | Lead Developer | Database design, core architecture, state management, UI implementation |
+| Edward Forrester | Teammate | Collaborator |
 
 ## 📄 License
 
@@ -352,7 +371,7 @@ This project is licensed under the **MIT License** - see LICENSE.txt for details
 
 **Built for**: Mobile Application Development (MAD)  
 **Course**: Undergrad  
-**Institution**: University  
+**Institution**: Georgia State University  
 **Status**: ✅ Functional MVP
 
 For questions or feedback, open an issue on [GitHub](https://github.com/Phyvlik/project_01_fitness_tracker).
