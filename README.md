@@ -360,8 +360,8 @@ exercises (1) ─── (*) workout_exercises
 
 | Name | Role | Contributions |
 |------|------|---|
-| Vivek | Lead Developer | Database design, core architecture, state management, UI implementation |
-| Edward Forrester | Teammate | Collaborator |
+| Vivek Patel | Lead Developer | Navigation, Home Dashboard, Insights, Add Workout, Validation, SQLite Schema, Provider State, Settings, Export/Import, Offline Sync Queue |
+| Edward Forrester | Teammate | Insights Engine, Data Visualization, Quest System, State Management, Metrics Logic |
 
 ## 📄 License
 
